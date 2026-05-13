@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お任せバーテンダーくん | Ultimate Edition</title>
+    <style>
+        :root { --primary-color: #f39c12; --bg-color: #1a1c2c; --card-bg: #252a44; --text-main: #e0e6ed; --accent-soft: #3a4161; }
+        body { font-family: "Helvetica Neue", Arial, sans-serif; background: var(--bg-color); color: var(--text-main); padding: 20px; margin: 0; line-height: 1.6; }
+        .container { max-width: 700px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; }
+        header h1 { font-size: 32px; font-weight: 900; color: var(--primary-color); margin: 0; text-shadow: 0 0 10px rgba(243, 156, 18, 0.3); }
+        header p { color: #8a91b1; font-size: 14px; }
+        
+        .card { background: var(--card-bg); padding: 25px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.4); margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.05); }
+        .api-settings { background: rgba(0,0,0,0.3); color: #5c6381; padding: 8px 15px; border-radius: 30px; margin-bottom: 25px; display: flex; align-items: center; font-size: 10px; }
+        .api-settings input { background: transparent; border: none; color: #aaa; margin-left: 10px; flex: 1; outline: none; }
+        
+        h3.section-title { font-size: 13px; margin-bottom: 12px; color: #8a91b1; text-transform: uppercase; letter-spacing: 1.5px; }
+        
+        .selector-group { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .selector-item { flex: 1; min-width: 100px; text-align: center; padding: 12px 5px; border: 1.5px solid var(--accent-soft); border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s; background: rgba(255,255,255,0.03); color: #a5adc1; }
+        .selector-item.active { background: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4); }
+
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; }
+        .chip { background: rgba(255,255,255,0.03); border: 1.5px solid var(--accent-soft); padding: 8px 14px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; color: #a5adc1; }
+        .chip.active { background: #4a90e2; color: white; border-color: #4a90e2; }
+        
+        .input-area { position: relative; margin-bottom: 15px; }
+        input[type="text"] { width: 100%; padding: 15px; padding-right: 85px; border: 1.5px solid var(--accent-soft); border-radius: 15px; font-size: 16px; box-sizing: border-box; outline: none; background: rgba(0,0,0,0.2); color: white; }
+        
+        .clear-btn { position: absolute; right: 10px; top: 12px; background: var(--accent-soft); border: none; color: #fff; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 11px; }
+        
+        .main-btn { background: var(--primary-color); color: white; border: none; padding: 20px; border-radius: 40px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; box-shadow: 0 8px 25px rgba(243, 156, 18, 0.3); transition: 0.3s; margin-top: 10px; }
+        
+        .recipe-item { background: var(--card-bg); border-radius: 24px; padding: 25px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); margin-top: 25px; border: 1px solid rgba(255,255,255,0.05); }
+        .materials-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 15px; font-size: 14px; margin: 15px 0; border-left: 4px solid var(--primary-color); color: #cbd5e0; }
+        .pairing-box { background: rgba(243, 156, 18, 0.1); padding: 12px; border-radius: 12px; font-size: 13px; color: #f1c40f; margin-top: 10px; border: 1px solid rgba(243, 156, 18, 0.2); }
+        #loading { text-align: center; display: none; padding: 40px; font-weight: bold; color: var(--primary-color); font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header><h1>🍸 お任せバーテンダーくん</h1><p>今夜の気分に合わせた最高の一杯を。</p></header>
+        <div class="api-settings"><span>🔑 API:</span><input type="password" id="apiKeyInput" onchange="saveKey()"></div>
+        
+        <div class="card">
+            <h3 class="section-title">提案モード</h3>
+            <div class="selector-group">
+                <div id="mode-std" class="selector-item active" onclick="setMode('standard')">定番 (Standard)</div>
+                <div id="mode-craft" class="selector-item" onclick="setMode('craft')">こだわり (Craft)</div>
+            </div>
+
+            <h3 class="section-title">ベース・スピリッツ</h3>
+            <div class="selector-group" id="base-selector">
+                <div class="selector-item active" onclick="setBase('ジン', this)">ジン</div>
+                <div class="selector-item" onclick="setBase('ウォッカ', this)">ウォッカ</div>
+                <div class="selector-item" onclick="setBase('テキーラ', this)">テキーラ</div>
+                <div class="selector-item" onclick="setBase('ラム', this)">ラム</div>
+                <div class="selector-item" onclick="setBase('ウイスキー', this)">ウイスキー</div>
+            </div>
+
+            <h3 class="section-title">今日のテイスト</h3>
+            <div class="chip-container">
+                <button class="chip" onclick="toggleChip('さっぱり', this)">🍋 さっぱり</button>
+                <button class="chip" onclick="toggleChip('甘め', this)">🍭 甘め</button>
+                <button class="chip" onclick="toggleChip('辛口', this)">🌶️ 辛口</button>
+                <button class="chip" onclick="toggleChip('フルーティー', this)">🍎 フルーティー</button>
+                <button class="chip" onclick="toggleChip('炭酸あり', this)">🫧 炭酸あり</button>
+                <button class="chip" onclick="toggleChip('強め', this)">🥃 強め</button>
+            </div>
+
+            <h3 class="section-title">家にある材料・こだわり</h3>
+            <div class="input-area">
+                <input type="text" id="ingredients" placeholder="例: ライム、ミント、コーラ">
+                <button class="clear-btn" onclick="resetAll()">リセット</button>
+            </div>
+
+            <button class="main-btn" onclick="generate()">カクテルを3つ提案してもらう</button>
+        </div>
+
+        <div id="loading"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let selectedBase = 'ジン', selectedChips = [], selectedMode = 'standard';
+        
+        window.onload = () => { if(localStorage.getItem('openai_api_key')) document.getElementById('apiKeyInput').value = localStorage.getItem('openai_api_key'); }
+        const saveKey = () => localStorage.setItem('openai_api_key', document.getElementById('apiKeyInput').value);
+        
+        const setMode = (m) => {
+            selectedMode = m;
+            document.getElementById('mode-std').classList.toggle('active', m === 'standard');
+            document.getElementById('mode-craft').classList.toggle('active', m === 'craft');
+        };
+
+        const setBase = (b, el) => {
+            selectedBase = b;
+            document.querySelectorAll('#base-selector .selector-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        };
+
+        function toggleChip(name, el) {
+            el.classList.toggle('active');
+            if (el.classList.contains('active')) { selectedChips.push(name); } 
+            else { selectedChips = selectedChips.filter(c => c !== name); }
+        }
+
+        function resetAll() {
+            document.getElementById('ingredients').value = '';
+            selectedChips = [];
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        }
+
+        async function generate() {
+            const key = document.getElementById('apiKeyInput').value, ing = document.getElementById('ingredients').value;
+            if(!key) return alert('APIキーを入れてな！');
+            const loader = document.getElementById('loading');
+            loader.innerText = selectedMode === 'standard' ? "バーテンダーがシェイカーを振っています...⏳" : "通好みの1杯を考案中...🥃";
+            loader.style.display = 'block';
+            document.getElementById('result').innerHTML = '';
+            
+            const systemPrompt = `あなたは正確無比な一流バーテンダー。JSONのみ出力せよ。
+            1. モード[${selectedMode}]に基づき、カクテルを必ず3つ提案せよ。
+               - standard: 誰もが知る有名カクテル。
+               - craft: 少し珍しい、プロが勧める通なカクテル。
+            2. 【味覚の厳守】「ジントニック」は糖分を含み甘いため、特徴に「辛口」がある場合は絶対に出すな。
+            3. 各材料(materials)には必ず具体的な「分量(ml,枚,個等)」を併記し、改行区切りの1つの文字列として出力。
+            4. 手順(steps)はプロの手順を簡潔に。おつまみ(snack)と一言(msg)を含めろ。`;
+
+            try {
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini",
+                        messages: [
+                            { role: "system", content: systemPrompt },
+                            { role: "user", content: `ベース:${selectedBase}、特徴:${selectedChips.join(',') || "おまかせ"}、材料:${ing || "なし"}。JSON:{"cocktails":[{"name":"正式名称","strength":"★★☆","materials":"ジン 45ml\\nソーダ 適量\\nライム 1/6個","steps":"手順","snack":"つまみ","msg":"こだわり"}]}` }
+                        ],
+                        response_format: { type: "json_object" }
+                    })
+                });
+                const data = await res.json();
+                const cocktails = JSON.parse(data.choices[0].message.content).cocktails;
+                cocktails.slice(0, 3).forEach(c => renderCocktail(c));
+            } catch (e) { alert('エラーや！'); console.error(e); } finally { loader.style.display = 'none'; }
+        }
+
+        function renderCocktail(c) {
+            let matHtml = Array.isArray(c.materials) ? c.materials.join('<br>') : c.materials.replace(/\n/g, '<br>');
+            const div = document.createElement('div'); div.className = 'recipe-item';
+            div.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <span style="font-weight:bold; font-size:20px; color:var(--primary-color);">${c.name}</span>
+                    <span style="font-size:12px; color:#8a91b1;">度数: ${c.strength}</span>
+                </div>
+                <div class="materials-box"><strong>レシピ:</strong><br>${matHtml}</div>
+                <p style="font-size:14px; color:#cbd5e0;"><strong>作り方:</strong><br>${c.steps}</p>
+                <div class="pairing-box">🧀 <strong>おつまみ:</strong> ${c.snack}</div>
+                <p style="font-size:12px; font-style:italic; color:#718096; margin-top:15px;">「${c.msg}」</p>
+                <div style="margin-top:20px; display:flex; gap:10px;">
+                    <a href="https://www.youtube.com/results?search_query=${c.name} 作り方" target="_blank" style="flex:1; text-align:center; background:#cc0000; color:white; text-decoration:none; padding:10px; border-radius:12px; font-size:12px; font-weight:bold;">動画検索</a>
+                    <a href="https://www.google.com/search?tbm=isch&q=${c.name} カクテル" target="_blank" style="flex:1; text-align:center; background:rgba(255,255,255,0.1); color:white; text-decoration:none; padding:10px; border-radius:12px; font-size:12px; font-weight:bold;">画像検索</a>
+                </div>`;
+            document.getElementById('result').appendChild(div);
+        }
+    </script>
+</body>
+</html>
