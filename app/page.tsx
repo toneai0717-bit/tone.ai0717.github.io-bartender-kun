@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface Cocktail {
   name: string;
@@ -37,6 +37,7 @@ export default function Home() {
   const [ingredients, setIngredients] = useState("");
   const [loading, setLoading] = useState(false);
   const [cocktails, setCocktails] = useState<Cocktail[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
 
   const toggleTaste = (label: string) => {
     setTastes((prev) =>
@@ -45,6 +46,11 @@ export default function Home() {
   };
 
   const generate = async () => {
+    // 連打防止：前のリクエストをキャンセル
+    if (abortRef.current) abortRef.current.abort();
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     setLoading(true);
     setCocktails([]);
     try {
@@ -52,10 +58,47 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode, base, tool, tastes, ingredients }),
+        signal: abort.signal,
       });
-      const data = await res.json();
-      setCocktails(data.cocktails || []);
-    } catch {
+
+      if (!res.ok) throw new Error(`サーバーエラー: ${res.status}`);
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("ストリーム取得失敗");
+      const decoder = new TextDecoder("utf-8", { fatal: false });
+      let lineBuffer = "";
+
+      let done = false;
+      while (!done) {
+        const { value, done: streamDone } = await reader.read();
+        done = streamDone;
+        if (!value) continue;
+
+        lineBuffer += decoder.decode(value, { stream: !done });
+        const lines = lineBuffer.split("\n");
+        lineBuffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data: ") || trimmed === "data: [DONE]") continue;
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            if (parsed.error) { alert("エラーが発生しました"); return; }
+            const idx = typeof parsed.index === "number" && parsed.index >= 0 && parsed.index <= 2
+              ? parsed.index : null;
+            if (idx === null || !parsed.cocktail) continue;
+            setCocktails((prev) => {
+              const next = [...prev];
+              next[idx] = parsed.cocktail;
+              return next;
+            });
+          } catch {
+            // 不完全なJSONはスキップ
+          }
+        }
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
       alert("エラーが発生しました");
     } finally {
       setLoading(false);
@@ -207,7 +250,7 @@ export default function Home() {
           <div className="space-y-4 pt-2">
             <p className="text-xs text-slate-500 text-center uppercase tracking-widest">今夜のおすすめ</p>
             {cocktails.map((c, i) => (
-              <div key={i} className="bg-[#252a44] rounded-2xl p-5 border border-white/5">
+              <div key={c?.name ?? i} className="bg-[#252a44] rounded-2xl p-5 border border-white/5">
                 {/* ヘッダー */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 flex-wrap">
